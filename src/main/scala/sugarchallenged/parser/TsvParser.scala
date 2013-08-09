@@ -2,7 +2,8 @@ package sugarchallenged.parser
 
 import org.scala_tools.time.Imports._
 import sugarchallenged.utils.Timestamp
-import sugarchallenged.{EventType, Event}
+import sugarchallenged.models.{EventType, Event}
+import scala.slick.session.Database
 
 object TsvParser {
   val HEADER_COLUMN = "DATEEVENT"
@@ -33,7 +34,7 @@ object TsvParser {
     fields(2) == "5"
   }
 
-  def parse(inputFile: String, dateTimeZone: DateTimeZone) = {
+  def parse(inputFile: String, dateTimeZone: DateTimeZone, database: Database) = {
     val source = scala.io.Source.fromFile(inputFile)(io.Codec("ISO-8859-1"))
     source.getLines foreach {
       line =>
@@ -43,18 +44,20 @@ object TsvParser {
 
           val event =
             if (isBGEvent(fields)) {
-              Event(EventType.BG, timestamp, Some(fields(11).toFloat), None)
+              Event(fields(6), EventType.BG, timestamp, Some(fields(11).toFloat), None)
             } else if (isBasalChangeEvent(fields)) {
-              Event(EventType.Basal, timestamp, Some(fields(20).toFloat), None)
+              Event(fields(6), EventType.Basal, timestamp, Some(fields(20).toFloat), None)
             } else if (isPodChangedEvent(fields)) {
-              Event(EventType.PumpChange, timestamp, None, None)
+              Event(fields(6), EventType.PumpChange, timestamp, None, None)
             } else if (isBolusEvent(fields)) {
-              Event(EventType.Bolus, timestamp, Some(fields(20).toFloat), Some(fields(27) + "<br/>" + fields(36)))
+              Event(fields(6), EventType.Bolus, timestamp, Some(fields(20).toFloat), Some(fields(27) + "<br/>" + fields(36)))
             } else if (isFoodEvent(fields)) {
-              Event(EventType.Food, timestamp, Some(fields(21).toFloat), None)
+              Event(fields(6), EventType.Food, timestamp, Some(fields(21).toFloat), None)
+            } else {
+              null
             }
 
-          println(event)
+          Option(event) foreach (_.save)
         }
     }
   }
